@@ -1,0 +1,102 @@
+Configuring alerts in Prometheus based on specific metric thresholds and displaying them in Grafana involves several steps. Here’s a comprehensive guide to set up alerts for CPU usage greater than 80% and visualize those alerts in Grafana.
+
+Step 1: Configure Alerts in Prometheus
+Edit the Prometheus Configuration: Open the prometheus.yml configuration file and add an alerting section. Below is a sample configuration:
+
+global:
+  scrape_interval: 15s  # Default scrape interval
+  evaluation_interval: 1m  # How often to evaluate the rules
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'localhost:9093'  # Alertmanager address
+
+rule_files:
+  - 'alerts.yml'  # Reference to the alert rules file
+
+scrape_configs:
+  - job_name: 'nodejs-app'
+    static_configs:
+      - targets: ['localhost:3000']  # Replace with your Node.js app URL
+Make sure to replace localhost:9093 with the address of your Alertmanager if you are using it.
+
+Create an Alert Rules File: Create a new file named alerts.yml in the same directory as your prometheus.yml file. Add the following content:
+
+groups:
+  - name: cpu-alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: (1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.8)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU Usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes."
+This rule triggers an alert named HighCPUUsage if the average CPU usage exceeds 80% for a duration of 5 minutes.
+
+Restart Prometheus: After modifying the configuration, restart Prometheus to apply the changes:
+
+sudo systemctl restart prometheus
+Step 2: Install and Configure Alertmanager
+Install Alertmanager:
+
+Download and install Alertmanager by following the instructions on the Alertmanager download page.
+Configure Alertmanager: Create a configuration file named alertmanager.yml and add the following content:
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: 'grafana'
+
+receivers:
+  - name: 'grafana'
+    grafana:
+      api_url: 'http://localhost:3000/api/annotations'  # Replace with your Grafana URL
+      basic_auth:
+        username: 'admin'  # Your Grafana username
+        password: 'admin'  # Your Grafana password
+Run Alertmanager: Start Alertmanager with the following command:
+
+./alertmanager --config.file=alertmanager.yml
+Step 3: Configure Grafana to Display Alerts
+Add Alertmanager as a Data Source:
+
+In Grafana, click on the Gear icon (⚙️) on the left sidebar and select Data Sources.
+Click on Add data source and choose Prometheus.
+Enter http://localhost:9090 as the URL.
+Click on Save & Test.
+Create a Dashboard for Alerts:
+
+Click on the + icon on the left sidebar and select Dashboard.
+
+Click on Add new panel.
+
+In the Query section, select Prometheus as the data source.
+
+Use the following query to visualize the alerts:
+ALERTS{alertname="HighCPUUsage"}
+Customize Your Panel:
+
+Choose a visualization type (e.g., Table).
+Set the title of your panel to something like "Alerts".
+Adjust any other settings as needed.
+Save the Dashboard:
+
+Click on Save Dashboard in the top right corner, provide a name, and save it.
+Step 4: Verify Alerts
+Simulate High CPU Usage:
+
+If you want to test the alert, you can artificially increase CPU usage on your Node.js application.
+Check Alerts in Prometheus:
+
+Go to the Prometheus UI at http://localhost:9090/alerts to see if the alert is triggered.
+View Alerts in Grafana:
+
+Check the Grafana dashboard you created to see if the alert appears there.
