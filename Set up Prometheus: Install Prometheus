@@ -1,0 +1,84 @@
+
+Setting up Prometheus to scrape metrics from a target service like a Node.js application involves several steps, including installing Prometheus, configuring it to scrape metrics, and verifying the setup. Below is a step-by-step guide to help you through the process.
+
+Step 1: Install Prometheus
+Download Prometheus:
+
+Visit the Prometheus download page and download the latest version for your operating system.
+
+To download Prometheus for Linux:
+wget https://github.com/prometheus/prometheus/releases/download/vX.X.X/prometheus-X.X.X.linux-amd64.tar.gz
+Replace X.X.X with the latest version number.
+
+Extract the tarball:
+
+tar xvfz prometheus-X.X.X.linux-amd64.tar.gz
+cd prometheus-X.X.X.linux-amd64
+Run Prometheus:
+
+./prometheus --config.file=prometheus.yml
+Step 2: Configure Prometheus
+Edit the prometheus.yml configuration file:
+
+Open the prometheus.yml file in a text editor.
+
+global:
+  scrape_interval: 15s  # Default scrape interval
+
+scrape_configs:
+  - job_name: 'nodejs-app'
+    static_configs:
+      - targets: ['localhost:3000']  # Replace with your Node.js app URL
+Make sure to replace localhost:3000 with the appropriate address and port of your Node.js application.
+
+Step 3: Expose Metrics in Your Node.js Application
+To expose metrics from a Node.js application, you can use the prom-client library. Here’s how to set it up:
+
+Install the prom-client package:
+
+npm install prom-client
+Set up the metrics endpoint in your Node.js application:
+
+const express = require('express');
+const client = require('prom-client');
+
+const app = express();
+const port = 3000;
+
+// Create a registry to hold the metrics
+const register = new client.Registry();
+
+// Create a counter metric
+const httpRequestCounter = new client.Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method']
+});
+
+// Middleware to count requests
+app.use((req, res, next) => {
+    httpRequestCounter.inc({ method: req.method });
+    next();
+});
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+});
+
+app.listen(port, () => {
+    console.log(`Node.js app listening at http://localhost:${port}`);
+});
+Step 4: Verify Metrics Collection
+Start your Node.js application:
+
+node your_app.js
+Replace your_app.js with the name of your Node.js file.
+
+Access the Prometheus UI:
+
+Open your browser and go to http://localhost:9090.
+Check Targets:
+
+Navigate to Status > Targets in the Prometheus UI.
